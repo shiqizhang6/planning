@@ -4,5 +4,7 @@ pomdp/*.pyc
 pomdp/__pycache__/*
 pomdp/config*
 pomdp/models*
-pomdp/policy*
+pomdp/policy/*
 pomdp/results*
+pomdp/speech_recognizer.py
+pomdp/script*
