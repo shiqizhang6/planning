@@ -1,0 +1,8 @@
+exp*
+plog*
+pomdp/*.pyc
+pomdp/__pycache__/*
+pomdp/config*
+pomdp/models*
+pomdp/policy*
+pomdp/results*
