@@ -1,5 +1,6 @@
 exp*
-plog*
+plog/*.txt
+plog/distr_gen.py
 pomdp/*.pyc
 pomdp/__pycache__/*
 pomdp/config/speech*

@@ -1,0 +1,176 @@
+
+%% time (morning, noon and afternoon are added)
+
+#domain time(T). 
+#domain person(P).
+#domain item(I).
+#domain room(R). 
+
+time={morning,noon,afternoon}.
+person={p0,p1,p2,p3}. 
+item={i0,i1,i2,i3}. % coke, pepsi, coffee, burger
+room={r0,r1,r2}.
+
+professor(p0).
+professor(p1).
+professor(p2).
+
+shoppingtime:time. 
+shoppingperson:person. 
+shoppingitem:person->item.
+shoppingroom:person->room.
+
+place(p0,r0). 
+place(p1,r1). 
+place(p2,r1).
+place(p3,r2).
+place(P, lab) :- student(P). 
+place(P,R)=false :- not place(P,R). 
+
+on_leave(P)=false :- not on_leave(P), professor(P). 
+authorized(P) :- on_leave(P)=false, professor(P). 
+
+% on_leave(dan). 
+
+paid(P)=false :- not paid(P), student(P).
+authorized(P) :- paid(P), student(P).
+
+authorized(P)=false :- not authorized(P). 
+
+%% set up values that are randomly selected
+[rt] random(shoppingtime). 
+[rp] random(shoppingperson).
+[ri(P)] random(shoppingitem(P)). 
+[rr(P)] random(shoppingroom(P)).
+
+%% *alice* and *bob* are early professors, and *carol* is a lazy student
+[rp] pr(shoppingperson=p0|shoppingtime=morning)=9/20.
+[rp] pr(shoppingperson=p1|shoppingtime=morning)=9/20. 
+[rp] pr(shoppingperson=p2|shoppingtime=afternoon)=15/20. 
+
+%% people mostly deliver the food/drink to their own offices
+[rr(P)] pr(shoppingroom(P)=R|place(P,R)=true)=8/10. 
+
+%% people prefer coffee in the morning, and sanwich around noon
+[ri(P)] pr(shoppingitem(P)=i2|shoppingtime=morning)=8/10. 
+[ri(P)] pr(shoppingitem(P)=i3|shoppingtime=noon)=8/10. 
+[ri(P)] pr(shoppingitem(P)=i2|shoppingtime=afternoon)=6/10. 
+
+%% given the deliver room to be conference room, people prefer coffee
+[ri(P)] pr(shoppingitem(P)=i2|shoppingroom(P)=r1)=7/10.
+
+task(I,P,R) :- shoppingperson=P, shoppingitem(P)=I, shoppingroom(P)=R,
+               authorized(P).
+task1(P,R) :- shoppingperson=P, shoppingroom(P)=R, authorized(P).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% The below queries are used for generating distributions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+?{task1(p0  ,r2 )} | obs(shoppingperson=p0). 
+
+% ?{task(sandwich ,alice  ,alice_office )}|obs(shoppingtime=morning). 
+% ?{task(sandwich ,alice  ,alice_office )}|obs(shoppingtime=noon). 
+% ?{task(sandwich ,alice  ,alice_office )}|obs(shoppingtime=afternoon). 
+
+%?{task(sandwich ,alice  ,alice_office )}|do(current(morning   )). 
+%?{task(sandwich ,alice  ,bob_office   )}|do(current(morning   )). 
+%?{task(sandwich ,alice  ,lab          )}|do(current(morning   )). 
+%?{task(sandwich ,alice  ,conf         )}|do(current(morning   )). 
+%?{task(sandwich ,bob    ,alice_office )}|do(current(morning   )). 
+%?{task(sandwich ,bob    ,bob_office   )}|do(current(morning   )). 
+%?{task(sandwich ,bob    ,lab          )}|do(current(morning   )). 
+%?{task(sandwich ,bob    ,conf         )}|do(current(morning   )). 
+%?{task(sandwich ,carol  ,alice_office )}|do(current(morning   )). 
+%?{task(sandwich ,carol  ,bob_office   )}|do(current(morning   )). 
+%?{task(sandwich ,carol  ,lab          )}|do(current(morning   )). 
+%?{task(sandwich ,carol  ,conf         )}|do(current(morning   )). 
+%?{task(coffee   ,alice  ,alice_office )}|do(current(morning   )). 
+%?{task(coffee   ,alice  ,bob_office   )}|do(current(morning   )). 
+%?{task(coffee   ,alice  ,lab          )}|do(current(morning   )). 
+%?{task(coffee   ,alice  ,conf         )}|do(current(morning   )). 
+%?{task(coffee   ,bob    ,alice_office )}|do(current(morning   )). 
+%?{task(coffee   ,bob    ,bob_office   )}|do(current(morning   )). 
+%?{task(coffee   ,bob    ,lab          )}|do(current(morning   )). 
+%?{task(coffee   ,bob    ,conf         )}|do(current(morning   )). 
+%?{task(coffee   ,carol  ,alice_office )}|do(current(morning   )). 
+%?{task(coffee   ,carol  ,bob_office   )}|do(current(morning   )). 
+%?{task(coffee   ,carol  ,lab          )}|do(current(morning   )). 
+%?{task(coffee   ,carol  ,conf         )}|do(current(morning   )). 
+%%%
+%?{task(sandwich ,alice  ,alice_office )}|do(current(noon      )).
+%?{task(sandwich ,alice  ,bob_office   )}|do(current(noon      )). 
+%?{task(sandwich ,alice  ,lab          )}|do(current(noon      )). 
+%?{task(sandwich ,alice  ,conf         )}|do(current(noon      )). 
+%?{task(sandwich ,bob    ,alice_office )}|do(current(noon      )). 
+%?{task(sandwich ,bob    ,bob_office   )}|do(current(noon      )). 
+%?{task(sandwich ,bob    ,lab          )}|do(current(noon      )). 
+%?{task(sandwich ,bob    ,conf         )}|do(current(noon      )). 
+%?{task(sandwich ,carol  ,alice_office )}|do(current(noon      )). 
+%?{task(sandwich ,carol  ,bob_office   )}|do(current(noon      )). 
+%?{task(sandwich ,carol  ,lab          )}|do(current(noon      )). 
+%?{task(sandwich ,carol  ,conf         )}|do(current(noon      )). 
+%?{task(coffee   ,alice  ,alice_office )}|do(current(noon      )). 
+%?{task(coffee   ,alice  ,bob_office   )}|do(current(noon      )). 
+%?{task(coffee   ,alice  ,lab          )}|do(current(noon      )). 
+%?{task(coffee   ,alice  ,conf         )}|do(current(noon      )). 
+%?{task(coffee   ,bob    ,alice_office )}|do(current(noon      )). 
+%?{task(coffee   ,bob    ,bob_office   )}|do(current(noon      )). 
+%?{task(coffee   ,bob    ,lab          )}|do(current(noon      )). 
+%?{task(coffee   ,bob    ,conf         )}|do(current(noon      )). 
+%?{task(coffee   ,carol  ,alice_office )}|do(current(noon      )). 
+%?{task(coffee   ,carol  ,bob_office   )}|do(current(noon      )). 
+%?{task(coffee   ,carol  ,lab          )}|do(current(noon      )). 
+%?{task(coffee   ,carol  ,conf         )}|do(current(noon      )). 
+%%%
+%?{task(sandwich ,alice  ,alice_office )}|do(current(afternoon )).  
+%?{task(sandwich ,alice  ,bob_office   )}|do(current(afternoon )). 
+%?{task(sandwich ,alice  ,lab          )}|do(current(afternoon )). 
+%?{task(sandwich ,alice  ,conf         )}|do(current(afternoon )). 
+%?{task(sandwich ,bob    ,alice_office )}|do(current(afternoon )). 
+%?{task(sandwich ,bob    ,bob_office   )}|do(current(afternoon )). 
+%?{task(sandwich ,bob    ,lab          )}|do(current(afternoon )). 
+%?{task(sandwich ,bob    ,conf         )}|do(current(afternoon )). 
+%?{task(sandwich ,carol  ,alice_office )}|do(current(afternoon )). 
+%?{task(sandwich ,carol  ,bob_office   )}|do(current(afternoon )). 
+%?{task(sandwich ,carol  ,lab          )}|do(current(afternoon )). 
+%?{task(sandwich ,carol  ,conf         )}|do(current(afternoon )). 
+%?{task(coffee   ,alice  ,alice_office )}|do(current(afternoon )). 
+%?{task(coffee   ,alice  ,bob_office   )}|do(current(afternoon )). 
+%?{task(coffee   ,alice  ,lab          )}|do(current(afternoon )). 
+%?{task(coffee   ,alice  ,conf         )}|do(current(afternoon )). 
+%?{task(coffee   ,bob    ,alice_office )}|do(current(afternoon )). 
+%?{task(coffee   ,bob    ,bob_office   )}|do(current(afternoon )). 
+%?{task(coffee   ,bob    ,lab          )}|do(current(afternoon )). 
+%?{task(coffee   ,bob    ,conf         )}|do(current(afternoon )). 
+%?{task(coffee   ,carol  ,alice_office )}|do(current(afternoon )). 
+%?{task(coffee   ,carol  ,bob_office   )}|do(current(afternoon )). 
+%?{task(coffee   ,carol  ,lab          )}|do(current(afternoon )). 
+%?{task(coffee   ,carol  ,conf         )}|do(current(afternoon )).  
+%%%
+%?{task(sandwich ,alice  ,alice_office )}.  
+%?{task(sandwich ,alice  ,bob_office   )}. 
+%?{task(sandwich ,alice  ,lab          )}. 
+%?{task(sandwich ,alice  ,conf         )}. 
+%?{task(sandwich ,bob    ,alice_office )}. 
+%?{task(sandwich ,bob    ,bob_office   )}. 
+%?{task(sandwich ,bob    ,lab          )}. 
+%?{task(sandwich ,bob    ,conf         )}. 
+%?{task(sandwich ,carol  ,alice_office )}. 
+%?{task(sandwich ,carol  ,bob_office   )}. 
+%?{task(sandwich ,carol  ,lab          )}. 
+%?{task(sandwich ,carol  ,conf         )}. 
+%?{task(coffee   ,alice  ,alice_office )}. 
+%?{task(coffee   ,alice  ,bob_office   )}. 
+%?{task(coffee   ,alice  ,lab          )}. 
+%?{task(coffee   ,alice  ,conf         )}. 
+%?{task(coffee   ,bob    ,alice_office )}. 
+%?{task(coffee   ,bob    ,bob_office   )}. 
+%?{task(coffee   ,bob    ,lab          )}. 
+%?{task(coffee   ,bob    ,conf         )}. 
+%?{task(coffee   ,carol  ,alice_office )}. 
+%?{task(coffee   ,carol  ,bob_office   )}. 
+%?{task(coffee   ,carol  ,lab          )}. 
+%?{task(coffee   ,carol  ,conf         )}.  
+
+
