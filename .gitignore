@@ -2,7 +2,7 @@ exp*
 plog*
 pomdp/*.pyc
 pomdp/__pycache__/*
-pomdp/config*
+pomdp/config/speech*
 pomdp/models*
 pomdp/policy/*
 pomdp/results*

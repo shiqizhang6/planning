@@ -636,7 +636,7 @@ class PomdpGenerator(object):
 
 def main():
 
-    num_item = 3
+    num_item = 4
     num_person = 4
     num_room = 3
 

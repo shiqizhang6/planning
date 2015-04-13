@@ -141,85 +141,8 @@ class Simulator(object):
         print('Error: observation is not properly sampled')
         sys.exit()
     else:
-      if self.s <= 11:
-        item = 'SANDWICH'
-      elif self.s > 11:
-        item = 'COFFEE'
-      else:
-        exit('ITEM UNKNOWN')
-
-      if int(self.s % 12 / 4) is 0:
-        person = 'ALICE'
-      elif int(self.s % 12 / 4) is 1:
-        person = 'BOB'
-      elif int(self.s % 12 / 4) is 2:
-        person = 'CAROL'
-      else:
-        exit('PERSON UNKNOWN')
-
-      if int(self.s % 4) is 0:
-        room = 'OFFICE ONE'
-      elif int(self.s % 4) is 1:
-        room = 'OFFICE TWO'
-      elif int(self.s % 4) is 2:
-        room = 'LAB'
-      elif int(self.s % 4) is 3:
-        room = 'CONFERENCE ROOM'
-      else:
-        exit('ROOM UNKNOWN')
-
-      print([item, person, room])
-      time.sleep(1)
-      
-      tmp_a = int(self.a)
-      if tmp_a is 0:
-        subprocess.Popen('espeak "what item should I buy?"', shell=True)
-      elif tmp_a is 1:
-        subprocess.Popen('espeak "who is this delivery for?"', shell=True)
-      elif tmp_a is 2:
-        subprocess.Popen('espeak "which room should I deliver to?"', shell=True)
-      elif tmp_a is 3:
-        subprocess.Popen('espeak "should I buy sandwich?"', shell=True)
-      elif tmp_a is 4:
-        subprocess.Popen('espeak "should I buy coffee?"', shell=True)
-      elif tmp_a is 5:
-        subprocess.Popen('espeak "is this delivery for alice?"', shell=True)
-      elif tmp_a is 6:
-        subprocess.Popen('espeak "is this delivery for bob?"', shell=True)
-      elif tmp_a is 7:
-        subprocess.Popen('espeak "is this delivery for carol?"', shell=True)
-      elif tmp_a is 8:
-        subprocess.Popen('espeak "should i deliver it to office one?"', shell=True)
-      elif tmp_a is 9:
-        subprocess.Popen('espeak "should i deliver it to office two?"', shell=True)
-      elif tmp_a is 10:
-        subprocess.Popen('espeak "should i deliver it to the lab?"', shell=True)
-      elif tmp_a is 11:
-        subprocess.Popen('espeak "should i deliver it to the conference room?"', shell=True)
-
-      recognizer = speech_recognizer.Recognizer(action=self.a)
-      self.o = recognizer.recognize()
-
-      print([item, person, room])
-      if tmp_a is 0 and 0 <= self.o <= 1:  # item
-        pass
-      elif tmp_a is 0:
-        self.o = random.randint(0, 2)
-      elif tmp_a is 1 and 2 <= self.o <= 4:  # person
-        pass
-      elif tmp_a is 1:
-        self.o = random.randint(2, 5)
-      elif tmp_a is 2 and 5 <= self.o <= 8:  # room
-        pass
-      elif tmp_a is 2:
-        self.o = random.randint(5, 9)
-      elif 3 <= tmp_a <= 11 and 9 <= self.o <= 10:  # yes no
-        pass
-      elif 3 <= tmp_a <= 11:
-        self.o = random.randint(9, 11)
-      else:
-        print('A trial has finished')
-        sys.exit()
+      print('ERROR')
+      exit(1)
 
   #######################################################################
   def update(self):
@@ -250,14 +173,13 @@ class Simulator(object):
         print('belief: ' + str(self.b.T))
         time.sleep(0.5)
       
-      # if abs(cost) >= self.max_cost:
-      #   self.a = self.policy_term.select_action(self.b)
+      if abs(cost) >= self.max_cost:
+        # arbitrarily select the first delivery
+        self.a = 3 + self.num_item + self.num_person + self.num_room
       # elif abs(cost) < self.min_cost:
       #   self.a = self.policy_ask.select_action(self.b)
-      # else:
-      #   self.a = self.policy_full.select_action(self.b)
-
-      self.a = self.policy_full.select_action(self.b)
+      else:
+        self.a = self.policy_full.select_action(self.b)
 
       ################## TEMP #########
       # if cnt == 0:
@@ -301,8 +223,8 @@ class Simulator(object):
     for i in range(self.trials_num):
 
       xk = numpy.arange(len(self.states))
-      print(xk)
-      print(self.pk)
+      # print(xk)
+      # print(self.pk)
       custm = stats.rv_discrete(name='custm', values=(xk, self.pk))
       self.s = custm.rvs(size=1)
 
@@ -335,18 +257,18 @@ class Simulator(object):
 def main():
 
   s = Simulator(uniform_init_belief=True, 
-                policy_file_full='policy/20150411.policy', 
-                pomdp_file='models/20150411.pomdp',
-                print_flag=True, 
+                policy_file_full='policy/20150413_443_374_989.87.policy', 
+                pomdp_file='models/20150413.pomdp',
+                print_flag=False, 
                 actual_time='day', 
                 robot_time='day', 
                 policy_switch='pomdp',
-                trials_num=10,
+                trials_num=1000,
                 min_cost=0,
-                max_cost=1000,
+                max_cost=100,
                 auto_observations=True,
                 rounds=1,
-                num_item=3,
+                num_item=4,
                 num_person=4,
                 num_room=3)
 
@@ -356,4 +278,6 @@ def main():
 if __name__ == '__main__':
 
   main()
+
+
 
