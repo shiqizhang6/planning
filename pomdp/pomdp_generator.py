@@ -270,16 +270,20 @@ class ObservationPolar(Observation):
 
 class PomdpGenerator(object):
 
-    def __init__(self, num_item, num_person, num_room, cost_i, cost_p, cost_r):
+    def __init__(self, num_item, num_person, num_room, r_max, r_min, \
+        weight_i, weight_p, weight_r):
         
         self.filename = 'models/' + time.strftime('%Y%m%d') + '.pomdp'
         self.num_item = num_item
         self.num_person = num_person
         self.num_room = num_room
 
-        self.cost_i = cost_i
-        self.cost_p = cost_p
-        self.cost_r = cost_r
+        self.r_max = r_max
+        self.r_min = r_min
+
+        self.weight_i = weight_i
+        self.weight_p = weight_p
+        self.weight_r = weight_r
 
         self.magic_number = 0.1
         self.polar_tp_rate = 0.95
@@ -308,8 +312,8 @@ class PomdpGenerator(object):
         self.obs_mat = self.computeObsFunction(self.num_item, self.num_person,
             self.num_room, self.magic_number, self.polar_tp_rate)
         self.reward_mat = self.computeRewardFunction(self.num_item,
-            self.num_person, self.num_room, self.cost_i, self.cost_p,
-            self.cost_r)
+            self.num_person, self.num_room, self.r_max, self.r_min, \
+            self.weight_i, self.weight_p, self.weight_r)
 
         self.writeToFile()
 
@@ -487,8 +491,8 @@ class PomdpGenerator(object):
 
         return obs_mat
 
-    def computeRewardFunction(self, num_item, num_person, num_room, cost_i,
-        cost_p, cost_r):
+    def computeRewardFunction(self, num_item, num_person, num_room,
+        r_max, r_min, weight_i, weight_p, weight_r):
 
         reward_mat = np.zeros((len(self.action_set), len(self.state_set), ))
 
@@ -505,26 +509,12 @@ class PomdpGenerator(object):
                 
                 for state in self.state_set:
 
-                    if action.getItemIndex() == state.getItemIndex() and \
-                        action.getPersonIndex() == state.getPersonIndex() and \
-                        action.getRoomIndex() == state.getRoomIndex():
-
-                        reward_mat[action.getIndex()][state.getIndex()] = 50
-                    #     continue
-
-                    # if action.getItemIndex() != state.getItemIndex():
-                    #     reward_mat[action.getIndex()][state.getIndex()] += \
-                    #         cost_i[action.getItemIndex()][state.getItemIndex()]
-
-                    # if action.getPersonIndex() != state.getPersonIndex():
-                    #     reward_mat[action.getIndex()][state.getIndex()] += \
-                    #         cost_p[action.getPersonIndex()][state.getPersonIndex()]
-
-                    # if action.getRoomIndex() != state.getRoomIndex():
-                    #     reward_mat[action.getIndex()][state.getIndex()] += \
-                    #         cost_r[action.getRoomIndex()][state.getRoomIndex()]
-                    else:
-                        reward_mat[action.getIndex()][state.getIndex()] = -100
+                    reward_mat[action.getIndex()][state.getIndex()] = \
+                        (r_max - r_min) * \
+                        weight_i[action.getItemIndex()][state.getItemIndex()]*\
+                        weight_p[action.getPersonIndex()][state.getPersonIndex()]*\
+                        weight_r[action.getRoomIndex()][state.getRoomIndex()]\
+                        + r_min
 
         return reward_mat
 
@@ -640,17 +630,33 @@ def main():
     num_person = 4
     num_room = 3
 
-    # cost_i = [[0, -10, -30, -25], [-10, 0, -30, -25], [-30, -30, 0, -15], \
-    #     [-25, -25, -15, 0]]
-    # cost_p = [[0, -20, -20, -20], [-20, 0, -20, -20], [-20, -20, 0, -20], \
-    #     [-20, -20, -20, 0]]
-    # cost_r = [[0, -20, -80], [-20, 0, -60], [-80, -60, 0]]
+    r_max = 50.0
+    r_min = -100.0
 
-    cost_i = None
-    cost_p = None
-    cost_r = None
+    old_reward = True
 
-    pg = PomdpGenerator(num_item, num_person, num_room, cost_i, cost_p, cost_r)
+    weight_i = np.array([[1.0, 0.25, 0.25, 0.125], 
+                         [0.25, 1.0, 0.5, 0.125], 
+                         [0.25, 0.5, 1.0, 0.125], 
+                         [0.125, 0.125, 0.125, 1.0]])
+
+    weight_p = np.array([[1.0, 0.0, 0.0, 0.0], 
+                         [0.0, 1.0, 0.5, 0.0], 
+                         [0.0, 0.5, 1.0, 0.0], 
+                         [0.0, 0.0, 0.0, 1.0]])
+
+    weight_r = np.array([[1.0, 3.0/7.0, 2.0/7.0], 
+                         [3.0/7.0, 1.0, 0.0], 
+                         [2.0/7.0, 0.0, 1.0]])
+
+    
+    if old_reward:
+        weight_i = weight_i.astype(int)
+        weight_p = weight_p.astype(int)
+        weight_r = weight_r.astype(int)
+
+    pg = PomdpGenerator(num_item, num_person, num_room, r_max, r_min, \
+        weight_i, weight_p, weight_r)
 
 if __name__ == '__main__':
 

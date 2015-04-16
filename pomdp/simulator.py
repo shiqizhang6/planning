@@ -4,7 +4,7 @@ import sys
 import time
 import pomdp_parser
 import policy_parser
-import speech_recognizer
+# import speech_recognizer
 import numpy
 import random
 from scipy import stats
@@ -218,6 +218,8 @@ class Simulator(object):
     cost_list = []
     success_list = []
     reward_list = []
+
+    string = ''
     
     bar = Bar('Processing', max=self.trials_num)
     for i in range(self.trials_num):
@@ -237,9 +239,16 @@ class Simulator(object):
       else:
         success_list.append(0)
 
+        string += str(self.s) + ' ' + str(self.a - (3 + self.num_item + \
+          self.num_person + self.num_room)) + '\n'
+
       bar.next()
 
     bar.finish()
+
+    f = open('new_reward_results.txt', 'w')
+    f.write(string)
+    f.close()
 
     cost_arr = numpy.array(cost_list)
     success_arr = numpy.array(success_list)
@@ -257,13 +266,13 @@ class Simulator(object):
 def main():
 
   s = Simulator(uniform_init_belief=True, 
-                policy_file_full='policy/20150413_443_374_989.87.policy', 
-                pomdp_file='models/20150413.pomdp',
+                policy_file_full='policy/20150414_new_reward.policy', 
+                pomdp_file='models/20150414_new_reward.pomdp',
                 print_flag=False, 
                 actual_time='day', 
                 robot_time='day', 
                 policy_switch='pomdp',
-                trials_num=1000,
+                trials_num=10000,
                 min_cost=0,
                 max_cost=100,
                 auto_observations=True,
@@ -278,6 +287,5 @@ def main():
 if __name__ == '__main__':
 
   main()
-
 
 
