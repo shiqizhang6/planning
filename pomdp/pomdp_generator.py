@@ -5,16 +5,29 @@ import time
 
 class State(object):
 
-    def __init__(self, item, person, room, num_item, num_person, num_room):
+    def __init__(self, num_item, num_person, num_room):
         
-        self.item = item
-        self.person = person
-        self.room = room
         self.num_item = num_item
         self.num_person = num_person
         self.num_room = num_room
 
+class StateRegular(State):
+
+    def __init__(self, item, person, room, num_item, num_person, num_room):
+
+        State.__init__(self, num_item, num_person, num_room)
+
+        self.item = item
+        self.person = person
+        self.room = room
         self.index = (item * num_person * num_room) + (person * num_room) + room
+
+    def getName(self):
+        return 'i' + str(self.item) + '_p' + str(self.person) + '_r' + \
+            str(self.room)
+
+    def getIndex(self):
+        return self.index
 
     def getItemIndex(self):
         return self.item
@@ -25,12 +38,25 @@ class State(object):
     def getRoomIndex(self):
         return self.room
 
+    def isTerminal(self):
+        return False
+
+
+class StateTerminal(State):
+
+    def __init__(self, num_item, num_person, num_room):
+
+        State.__init__(self, num_item, num_person, num_room)
+        self.index = num_item * num_person * num_room
+
     def getName(self):
-        return 'i' + str(self.item) + '_p' + str(self.person) + '_r' + \
-            str(self.room)
+        return 'terminal'
 
     def getIndex(self):
         return self.index
+
+    def isTerminal(self):
+        return True
 
 class Action(object):
 
@@ -40,6 +66,7 @@ class Action(object):
         assert qd_type in ['ask', 'deliver']
         self.qd_type = qd_type
 
+
 class ActionAsk(Action):
 
     def __init__(self, q_type):
@@ -47,6 +74,7 @@ class ActionAsk(Action):
         assert q_type in ['wh', 'polar']
         Action.__init__(self, 'ask')
         self.q_type = q_type
+
 
 class ActionAskWh(ActionAsk):
 
@@ -173,7 +201,7 @@ class Observation(object):
 
     def __init__(self, qd_type):
     
-        assert qd_type in ['wh', 'polar']
+        assert qd_type in ['wh', 'polar', 'none']
         self.qd_type = qd_type
 
 class ObservationWh(Observation):
@@ -268,6 +296,22 @@ class ObservationPolar(Observation):
         elif self.polar == 'no':
             return self.num_item + self.num_person + self.num_room + 1
 
+
+class ObservationNone(Observation):
+
+    def __init__(self, num_item, num_person, num_room):
+
+        Observation.__init__(self, 'none')
+        self.num_item = num_item
+        self.num_person = num_person
+        self.num_room = num_room
+
+    def getName(self):
+        return 'none'
+
+    def getIndex(self):
+        return self.num_item + self.num_person + self.num_room + 2
+
 class PomdpGenerator(object):
 
     def __init__(self, num_item, num_person, num_room, r_max, r_min, \
@@ -298,7 +342,6 @@ class PomdpGenerator(object):
         self.obs_mat = None
         self.reward_mat = None
 
-
         # compute the sets of states, actions, observations
         self.state_set = self.computeStateSet(self.num_item, self.num_person,
             self.num_room)
@@ -320,18 +363,20 @@ class PomdpGenerator(object):
 
     def computeTransFunction(self, num_item, num_person, num_room):
 
+        num_state = len(self.state_set)
+
         # as this problem is specific, this can be manually done
         trans_mat = np.ones((len(self.action_set), len(self.state_set), 
             len(self.state_set)))
 
         for action in self.action_set:
-            if action.qd_type == 'ask':
-                trans_mat[action.getIndex()] = np.eye(len(self.state_set), 
-                    dtype=float)
-            elif action.qd_type == 'deliver':
-                trans_mat[action.getIndex()] = np.ones((len(self.state_set),
-                len(self.state_set))) / float(len(self.state_set))
 
+            if action.qd_type == 'ask':
+                trans_mat[action.getIndex()] = np.eye(num_state, dtype=float)
+            elif action.qd_type == 'deliver':
+                trans_mat[action.getIndex()] = np.zeros((num_state, num_state))
+                trans_mat[action.getIndex()][:, num_state-1] = 1.0
+                
         return trans_mat
 
     # HERE WE INTRODUCE A NOVEL OBSERVATION MODEL
@@ -339,20 +384,31 @@ class PomdpGenerator(object):
     def computeObsFunction(self, num_item, num_person, num_room, magic_number,
         polar_tp_rate):
         
-        obs_mat = np.zeros((len(self.action_set), len(self.state_set),
-            len(self.observation_set)))
+        num_action = len(self.action_set)
+        num_state = len(self.state_set)
+        num_obs = len(self.observation_set)
+
+        obs_mat = np.zeros((num_action, num_state, num_obs))
 
         for action in self.action_set:
 
-            if action.qd_type == 'deliver':
-                obs_mat[action.getIndex()] = np.ones((len(self.state_set), 
-                    len(self.observation_set))) / len(self.observation_set)
+            # no observation given 'terminal' state, no matter of the action
+            for state in self.state_set:
+                if state.isTerminal() == True:
+                    obs_mat[action.getIndex()] = np.zeros((num_state, num_obs))
+                    obs_mat[action.getIndex()][state.getIndex(), num_obs-1]=1.0
 
+            if action.qd_type == 'deliver':
+                obs_mat[action.getIndex()] = np.zeros((num_state, num_obs))
+                obs_mat[action.getIndex()][:, num_obs-1] = 1.0
+                
             elif action.qd_type == 'ask':
                 if action.q_type == 'wh':
                     if action.var == 'item':
                         tp_rate = 1.0 / pow(num_item, magic_number)
                         for state in self.state_set:
+                            if state.isTerminal() == True:
+                                continue
                             for observation in self.observation_set:
                                 if observation.qd_type == 'wh':
                                     if observation.var == 'item':
@@ -372,6 +428,8 @@ class PomdpGenerator(object):
                     elif action.var == 'person':
                         tp_rate = 1.0 / pow(num_person, magic_number)
                         for state in self.state_set:
+                            if state.isTerminal() == True:
+                                continue
                             for observation in self.observation_set:
                                 if observation.qd_type == 'wh':
                                     if observation.var == 'person':
@@ -391,6 +449,8 @@ class PomdpGenerator(object):
                     elif action.var == 'room':
                         tp_rate = 1.0 / pow(num_room, magic_number)
                         for state in self.state_set:
+                            if state.isTerminal() == True:
+                                continue
                             for observation in self.observation_set:
                                 if observation.qd_type == 'wh':
                                     if observation.var == 'room':
@@ -410,6 +470,8 @@ class PomdpGenerator(object):
                 elif action.q_type == 'polar':
                     if action.var == 'item':
                         for state in self.state_set:
+                            if state.isTerminal() == True:
+                                continue
                             for observation in self.observation_set:
                                 if observation.getName() == 'yes':
                                     if state.getItemIndex() ==\
@@ -437,6 +499,8 @@ class PomdpGenerator(object):
                                             = self.polar_tn_rate
                     elif action.var == 'person':
                         for state in self.state_set:
+                            if state.isTerminal() == True:
+                                continue
                             for observation in self.observation_set:
                                 if observation.getName() == 'yes':
                                     if state.getPersonIndex() == \
@@ -464,6 +528,8 @@ class PomdpGenerator(object):
                                             self.polar_tn_rate
                     elif action.var == 'room':
                         for state in self.state_set:
+                            if state.isTerminal() == True:
+                                continue
                             for observation in self.observation_set:
                                 if observation.getName() == 'yes':
                                     if state.getRoomIndex() ==\
@@ -507,17 +573,29 @@ class PomdpGenerator(object):
                     reward_mat[action.getIndex()] = -2
 
             elif action.qd_type == 'deliver':
-                
+ 
                 for state in self.state_set:
+                    
+                    if state.isTerminal() == False:
 
-                    reward_mat[action.getIndex()][state.getIndex()] = \
-                        (r_max - r_min) * \
-                        weight_i[action.getItemIndex()][state.getItemIndex()]*\
-                        weight_p[action.getPersonIndex()][state.getPersonIndex()]*\
-                        weight_r[action.getRoomIndex()][state.getRoomIndex()]\
-                        + r_min
+                        reward_mat[action.getIndex()][state.getIndex()] = \
+                            self.proposedRewardFunction(r_max, r_min, 
+                            weight_i, weight_p, weight_r, action, state)
+
+            num_state = num_item * num_person * num_room + 1
+            reward_mat[action.getIndex()][num_state - 1] = 0.0
 
         return reward_mat
+
+    def proposedRewardFunction(self, r_max, r_min, weight_i, weight_p, weight_r,
+        action, state):
+
+        ret = r_min + (r_max - r_min) * \
+            weight_i[action.getItemIndex()][state.getItemIndex()] * \
+            weight_p[action.getPersonIndex()][state.getPersonIndex()] * \
+            weight_r[action.getRoomIndex()][state.getRoomIndex()]
+
+        return ret
 
     def computeStateSet(self, num_item, num_person, num_room):
 
@@ -525,7 +603,9 @@ class PomdpGenerator(object):
         for i in range(num_item):
             for p in range(num_person):
                 for r in range(num_room):
-                    ret.append(State(i, p, r, num_item, num_person, num_room))
+                    ret.append(StateRegular(i, p, r, num_item, num_person, num_room))
+
+        ret.append(StateTerminal(num_item, num_person, num_room))
 
         return ret
 
@@ -567,6 +647,7 @@ class PomdpGenerator(object):
 
         ret.append(ObservationPolar('yes', num_item, num_person, num_room))
         ret.append(ObservationPolar('no', num_item, num_person, num_room))
+        ret.append(ObservationNone(num_item, num_person, num_room))
 
         return ret
 
@@ -596,12 +677,15 @@ class PomdpGenerator(object):
 
         # section of transition matrix
         for action in self.action_set:
-            if action.qd_type == 'ask':
-                s += '\n\nT: ' + action.getName() + '\nidentity'
-            elif action.qd_type == 'deliver':
-                s += '\n\nT: ' + action.getName() + '\nuniform'
+            s += '\n\nT: ' + action.getName() + '\n'
+            for state_from in self.state_set:
+                for state_to in self.state_set:
 
-        s += '\n'
+                    prob = self.trans_mat[action.getIndex(), \
+                        state_from.getIndex(), state_to.getIndex()]
+                    s += str(prob) + ' '
+
+                s += '\n'
 
         # section of observation matrix
         for action in self.action_set:
