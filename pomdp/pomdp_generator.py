@@ -285,9 +285,10 @@ class PomdpGenerator(object):
         self.weight_p = weight_p
         self.weight_r = weight_r
 
-        self.magic_number = 0.1
-        self.polar_tp_rate = 0.95
-        self.polar_tn_rate = 0.95
+        # the larger, the more unreliable for the wh-questions. 
+        self.magic_number = 0.15
+        self.polar_tp_rate = 0.92
+        self.polar_tn_rate = 0.92
 
         self.state_set = []
         self.action_set = []
@@ -350,7 +351,7 @@ class PomdpGenerator(object):
             elif action.qd_type == 'ask':
                 if action.q_type == 'wh':
                     if action.var == 'item':
-                        tp_rate = 1.0 / pow(num_item, 0.1)
+                        tp_rate = 1.0 / pow(num_item, magic_number)
                         for state in self.state_set:
                             for observation in self.observation_set:
                                 if observation.qd_type == 'wh':
@@ -369,7 +370,7 @@ class PomdpGenerator(object):
                                                 (1.0-tp_rate) / (num_item-1)
                                     
                     elif action.var == 'person':
-                        tp_rate = 1.0 / pow(num_person, 0.1)
+                        tp_rate = 1.0 / pow(num_person, magic_number)
                         for state in self.state_set:
                             for observation in self.observation_set:
                                 if observation.qd_type == 'wh':
@@ -388,7 +389,7 @@ class PomdpGenerator(object):
                                                 = (1.0-tp_rate) / (num_person-1)
 
                     elif action.var == 'room':
-                        tp_rate = 1.0 / pow(num_room, 0.1)
+                        tp_rate = 1.0 / pow(num_room, magic_number)
                         for state in self.state_set:
                             for observation in self.observation_set:
                                 if observation.qd_type == 'wh':
@@ -575,7 +576,7 @@ class PomdpGenerator(object):
 
         # first few lines
         s = ''
-        s += 'discount : 0.9\n\nvalues: reward\n\nstates: '
+        s += 'discount : 0.95\n\nvalues: reward\n\nstates: '
 
         # section of states
         for state in self.state_set:
@@ -627,30 +628,34 @@ class PomdpGenerator(object):
 def main():
 
     num_item = 4
-    num_person = 4
-    num_room = 3
+    num_person = 1
+    num_room = 5
 
     r_max = 50.0
-    r_min = -100.0
+    r_min = -120.0
 
-    old_reward = True
+    new_reward = False
+    # row corresponds to action, column to underlying state
+    weight_i = np.array([[1.0, 0.5, 0.5, 0.25], 
+                         [0.5, 1.0, 0.75, 0.25], 
+                         [0.5, 0.75, 1.0, 0.25], 
+                         [0.25, 0.25, 0.25, 1.0]])
 
-    weight_i = np.array([[1.0, 0.25, 0.25, 0.125], 
-                         [0.25, 1.0, 0.5, 0.125], 
-                         [0.25, 0.5, 1.0, 0.125], 
-                         [0.125, 0.125, 0.125, 1.0]])
+    # weight_p = np.array([[1.0, 0.0, 0.0, 0.0], 
+    #                      [0.0, 1.0, 0.5, 0.0], 
+    #                      [0.0, 0.5, 1.0, 0.0], 
+    #                      [0.0, 0.0, 0.0, 1.0]])
+    weight_p = np.array([[1.0]])
 
-    weight_p = np.array([[1.0, 0.0, 0.0, 0.0], 
-                         [0.0, 1.0, 0.5, 0.0], 
-                         [0.0, 0.5, 1.0, 0.0], 
-                         [0.0, 0.0, 0.0, 1.0]])
-
-    weight_r = np.array([[1.0, 3.0/7.0, 2.0/7.0], 
-                         [3.0/7.0, 1.0, 0.0], 
-                         [2.0/7.0, 0.0, 1.0]])
-
+    weight_r = np.array([[1.0, 0.56, 0.6, 0.6, 0.33], 
+                         [0.14, 1.0, 0.4, 0.4, 0.14], 
+                         [0.11, 0.27, 1.0, 0.33, 0.11], 
+                         [0.11, 0.27, 0.33, 1.0, 0.11], 
+                         [0.33, 0.56, 0.6, 0.6, 1.0]])
+    # weight_r = np.array([[1.0]])
     
-    if old_reward:
+    if not new_reward:
+
         weight_i = weight_i.astype(int)
         weight_p = weight_p.astype(int)
         weight_r = weight_r.astype(int)

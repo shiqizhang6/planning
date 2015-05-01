@@ -48,7 +48,7 @@ class Simulator(object):
     self.num_person = num_person
     self.num_room = num_room
 
-    model = pomdp_parser.Pomdp(filename=pomdp_file, parsing_print_flag=True)
+    model = pomdp_parser.Pomdp(filename=pomdp_file, parsing_print_flag=False)
     self.states = model.states
     self.actions = model.actions
     self.observations = model.observations
@@ -107,8 +107,8 @@ class Simulator(object):
   #######################################################################
   def init_belief(self):
     if self.uniform_init_belief:
-      self.b = numpy.ones((len(self.states), 1, )) / len(self.states)
-      self.b = self.b.T
+      self.b = numpy.ones((1, len(self.states), )) 
+      self.b[0] = numpy.random.dirichlet( numpy.ones(len(self.states)) )
     # the following code will go wrong, as the pk_xxx's wrong size
     elif self.robot_time is 'morning':
       self.b = numpy.matrix(self.pk_mor)
@@ -173,13 +173,13 @@ class Simulator(object):
         print('belief: ' + str(self.b.T))
         time.sleep(0.5)
       
-      if abs(cost) >= self.max_cost:
-        # arbitrarily select the first delivery
-        self.a = 3 + self.num_item + self.num_person + self.num_room
-      # elif abs(cost) < self.min_cost:
-      #   self.a = self.policy_ask.select_action(self.b)
-      else:
-        self.a = self.policy_full.select_action(self.b)
+      # if abs(cost) >= self.max_cost:
+      #   # arbitrarily select the first delivery
+      #   self.a = 3 + self.num_item + self.num_person + self.num_room
+      # else:
+      #   self.a = self.policy_full.select_action(self.b)
+
+      self.a = self.policy_full.select_action(self.b)
 
       ################## TEMP #########
       # if cnt == 0:
@@ -219,7 +219,9 @@ class Simulator(object):
     success_list = []
     reward_list = []
 
-    string = ''
+    string_i = ''
+    string_p = ''
+    string_r = ''
     
     bar = Bar('Processing', max=self.trials_num)
     for i in range(self.trials_num):
@@ -233,22 +235,46 @@ class Simulator(object):
       cost_list.append(self.run())
       reward_list.append(self.r)
 
-      if int(self.a - (3 + self.num_item + self.num_person + self.num_room)) \
-          == int(self.s):
+      deliver_index = int(self.a - (3 + self.num_item + self.num_person + self.num_room))
+
+      if deliver_index == int(self.s):
         success_list.append(1)
       else:
         success_list.append(0)
 
-        string += str(self.s) + ' ' + str(self.a - (3 + self.num_item + \
-          self.num_person + self.num_room)) + '\n'
+        # string += str(self.s) + ' ' + str(self.a - (3 + self.num_item + \
+        #   self.num_person + self.num_room)) + '\n'
+
+      deliver_i = int(deliver_index / (self.num_person * self.num_room))
+      deliver_p = int(deliver_index / self.num_room) % self.num_person
+      deliver_r = int(deliver_index % self.num_room)
+
+      state_i = int(self.s / (self.num_person * self.num_room))
+      state_p = int(self.s / self.num_room) % self.num_person
+      state_r = int(self.s % self.num_room)
+
+      if deliver_p == state_p and deliver_r == state_r:
+        string_i += str(deliver_i) + ' ' + str(state_i) + '\n'
+
+      if deliver_i == state_i and deliver_r == state_r:
+        string_p += str(deliver_p) + ' ' + str(state_p) + '\n'
+
+      if deliver_i == state_i and deliver_p == state_p:
+        string_r += str(deliver_r) + ' ' + str(state_r) + '\n'
 
       bar.next()
 
     bar.finish()
 
-    f = open('new_reward_results.txt', 'w')
-    f.write(string)
-    f.close()
+    f_i = open('new_reward_results_i.txt', 'w')
+    f_p = open('new_reward_results_p.txt', 'w')
+    f_r = open('new_reward_results_r.txt', 'w')
+    f_i.write(string_i)
+    f_p.write(string_p)
+    f_r.write(string_r)
+    f_i.close()
+    f_p.close()
+    f_r.close()
 
     cost_arr = numpy.array(cost_list)
     success_arr = numpy.array(success_list)
@@ -266,21 +292,21 @@ class Simulator(object):
 def main():
 
   s = Simulator(uniform_init_belief=True, 
-                policy_file_full='policy/20150414_new_reward.policy', 
-                pomdp_file='models/20150414_new_reward.pomdp',
+                policy_file_full='policy/new.policy', 
+                pomdp_file='models/new.pomdp',
                 print_flag=False, 
                 actual_time='day', 
                 robot_time='day', 
                 policy_switch='pomdp',
-                trials_num=10000,
+                trials_num=100000,
                 min_cost=0,
                 max_cost=100,
                 auto_observations=True,
                 rounds=1,
                 num_item=4,
-                num_person=4,
-                num_room=3)
-
+                num_person=1,
+                num_room=5)
+  print('note that initial belief is not uniform')
   s.run_numbers_of_trials()
 
 

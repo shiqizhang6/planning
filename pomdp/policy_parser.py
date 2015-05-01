@@ -16,8 +16,6 @@ class Policy(object):
 
     lines = f.readlines()
 
-    print('\n\nI am called\n\n')
-
     # the first three and the last lines are not related to the actual policy
     lines = lines[3:]
 
@@ -25,7 +23,7 @@ class Policy(object):
     self.policy = numpy.zeros((len(lines), num_states, ))
 
     for i in range(len(lines)):
-      print("this line:\n\n" + lines[i])
+      # print("this line:\n\n" + lines[i])
       if lines[i].find('/AlphaVector') >= 0:
         break
       l = lines[i].find('"')
@@ -34,7 +32,7 @@ class Policy(object):
 
       ll = lines[i].find('>')
       rr = lines[i].find(' <')
-      print(str(i))
+      # print(str(i))
       self.policy[i] = numpy.matrix(lines[i][ll + 1 : rr])
 
     f.close()
