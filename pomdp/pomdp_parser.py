@@ -6,13 +6,10 @@ from numpy import matrix
 from numpy import matlib
 
 class Pomdp(object):
-  def __init__(self, filename='models/with_knowledge.pomdp', parsing_print_flag=True):
+  def __init__(self, filename='models/20150501.pomdp', parsing_print_flag=True):
+
     self.filename = filename
     self.print_flag = parsing_print_flag
-
-    self.num_item = 4
-    self.num_person = 4
-    self.num_room = 3
 
     try:
       f = open(self.filename, 'r')
@@ -90,15 +87,16 @@ class Pomdp(object):
         # The current POMDP model does not need this part, so it's not tested -
         # use with your own risk
         start_matrix = ind_enter + 1
-        print('start matrix: ---' + str(start_matrix) + '---')
         end_matrix = self.s.find('\n\n', start_matrix)
         str_matrix = self.s[start_matrix : end_matrix]
-        str_matrix.replace('\n', ';')
+        str_matrix = str_matrix.replace('\n', ';')
         if '*' in action:
           print('str matrix: ' + str_matrix)
           self.trans_mat[:] = np.matrix(str_matrix)
         else:
           self.trans_mat[self.actions.index(action)] = np.matrix(str_matrix)
+
+        from_here = end_matrix
 
     for i in range(len(self.actions)):
       for j in range(len(self.states)):

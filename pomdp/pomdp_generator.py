@@ -330,9 +330,9 @@ class PomdpGenerator(object):
         self.weight_r = weight_r
 
         # the larger, the more unreliable for the wh-questions. 
-        self.magic_number = 0.15
-        self.polar_tp_rate = 0.92
-        self.polar_tn_rate = 0.92
+        self.magic_number = 0.2
+        self.polar_tp_rate = 0.88
+        self.polar_tn_rate = 0.88
 
         self.state_set = []
         self.action_set = []
@@ -568,9 +568,9 @@ class PomdpGenerator(object):
             if action.qd_type == 'ask':
 
                 if action.q_type == 'wh':
-                    reward_mat[action.getIndex()] = -1
+                    reward_mat[action.getIndex()] = -2.0
                 elif action.q_type == 'polar':
-                    reward_mat[action.getIndex()] = -2
+                    reward_mat[action.getIndex()] = -1.0
 
             elif action.qd_type == 'deliver':
  
@@ -657,7 +657,7 @@ class PomdpGenerator(object):
 
         # first few lines
         s = ''
-        s += 'discount : 0.95\n\nvalues: reward\n\nstates: '
+        s += 'discount : 0.999\n\nvalues: reward\n\nstates: '
 
         # section of states
         for state in self.state_set:
@@ -713,30 +713,32 @@ def main():
 
     num_item = 4
     num_person = 1
-    num_room = 5
+    num_room = 3
 
     r_max = 50.0
-    r_min = -120.0
+    r_min = -50.0
 
-    new_reward = False
+    new_reward = True
+
     # row corresponds to action, column to underlying state
+
     weight_i = np.array([[1.0, 0.5, 0.5, 0.25], 
                          [0.5, 1.0, 0.75, 0.25], 
                          [0.5, 0.75, 1.0, 0.25], 
                          [0.25, 0.25, 0.25, 1.0]])
+    # weight_i = np.array([[1.0, 0.5], [0.5, 1.0]])
 
-    # weight_p = np.array([[1.0, 0.0, 0.0, 0.0], 
-    #                      [0.0, 1.0, 0.5, 0.0], 
-    #                      [0.0, 0.5, 1.0, 0.0], 
-    #                      [0.0, 0.0, 0.0, 1.0]])
-    weight_p = np.array([[1.0]])
+    weight_p = np.array([[1.0, 0.0, 0.0], 
+                         [0.0, 1.0, 0.5], 
+                         [0.0, 0.5, 1.0]])
+    # weight_p = np.array([[1.0]])
 
-    weight_r = np.array([[1.0, 0.56, 0.6, 0.6, 0.33], 
+    weight_r = np.array([[1.0, 0.6, 0.67, 0.67, 0.33], 
                          [0.14, 1.0, 0.4, 0.4, 0.14], 
                          [0.11, 0.27, 1.0, 0.33, 0.11], 
                          [0.11, 0.27, 0.33, 1.0, 0.11], 
-                         [0.33, 0.56, 0.6, 0.6, 1.0]])
-    # weight_r = np.array([[1.0]])
+                         [0.33, 0.6, 0.67, 0.67, 1.0]])
+    # weight_r = np.array([[1.0, 0.56], [0.14, 1.0]])
     
     if not new_reward:
 

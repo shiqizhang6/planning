@@ -14,304 +14,236 @@ import subprocess
 
 class Simulator(object):
 
-  def __init__(self, 
-               policy_file_full='policy/default.policy', 
-               pomdp_file='models/default.pomdp', 
-               auto_observations=True,
-               uniform_init_belief =True,
-               print_flag=True,
-               actual_time='day',
-               robot_time='day',
-               policy_switch='pomdp',
-               trials_num=1000,
-               min_cost=0,
-               max_cost=1000,
-               rounds=1, 
-               num_item=1, 
-               num_person=1,
-               num_room=1):
-    self.auto_observations = auto_observations
-    self.uniform_init_belief = uniform_init_belief
-    self.print_flag = print_flag
-    self.policy_switch = policy_switch
-    self.trials_num = trials_num
-    self.rounds = rounds
+    def __init__(self, 
+        auto_observations=True,
+        auto_state = False, 
+        uniform_init_belief =True,
+        print_flag=True,
+        policy_file='policy/default.policy', 
+        pomdp_file='models/default.pomdp', 
+        trials_num=1000,
+        num_item=1, 
+        num_person=1,
+        num_room=1):
 
-    print(pomdp_file)
-    print(policy_file_full)
+        print(pomdp_file)
+        print(policy_file)
 
-    self.policy_file_full = policy_file_full
-    self.min_cost = min_cost
-    self.max_cost = max_cost
+        self.auto_observations = auto_observations
+        self.auto_state = auto_state
+        self.uniform_init_belief = uniform_init_belief
+        self.print_flag = print_flag
+        self.trials_num = trials_num
 
-    self.num_item = num_item
-    self.num_person = num_person
-    self.num_room = num_room
+        self.num_item = num_item
+        self.num_person = num_person
+        self.num_room = num_room
 
-    model = pomdp_parser.Pomdp(filename=pomdp_file, parsing_print_flag=False)
-    self.states = model.states
-    self.actions = model.actions
-    self.observations = model.observations
-    self.trans_mat = model.trans_mat
-    self.obs_mat = model.obs_mat
-    self.reward_mat = model.reward_mat
+        # to read the pomdp model
+        model = pomdp_parser.Pomdp(filename=pomdp_file, parsing_print_flag=False)
+        self.states = model.states
+        self.actions = model.actions
+        self.observations = model.observations
+        self.trans_mat = model.trans_mat
+        self.obs_mat = model.obs_mat
+        self.reward_mat = model.reward_mat
 
-    self.b = None
-    self.a = None
-    self.o = None
-    self.r = 0.0
-    self.actual_time = actual_time
-    self.robot_time = robot_time
+        # to read the learned policy
+        self.policy = policy_parser.Policy(len(self.states), len(self.actions), 
+            filename=policy_file)
 
-    self.pk_mor = [\
-      0.072, 0.006, 0.006, 0.009, 0.006, 0.072, 0.006, 0.009, 0.00133333,
-      0.00133333, 0.016, 0.002, 0.288, 0.024, 0.024, 0.021, 0.024, 0.288, 0.024,
-      0.021, 0.00533333, 0.00533333, 0.064, 0.00466667]
+        self.b = None
+        self.a = None
+        self.o = None
 
-    self.pk_noo = [\
-      0.206452, 0.0172043, 0.0172043, 0.0172043, 0.0172043, 0.206452, 0.0172043,
-      0.0172043, 0.0172043, 0.0172043, 0.206452, 0.0172043, 0.0516129,
-      0.00430108, 0.00430108, 0.0150538, 0.00430108, 0.0516129, 0.00430108,
-      0.0150538, 0.00430108, 0.00430108, 0.0516129, 0.0150538]
-    self.pk_aft = [\
-      0.04, 0.00333333, 0.00333333, 0.0025, 0.00333333, 0.04, 0.00333333,
-      0.0025, 0.02, 0.02, 0.24, 0.015, 0.06, 0.005, 0.005, 0.00583333, 0.005,
-      0.06, 0.005, 0.00583333, 0.03, 0.03, 0.36, 0.035]
+        # to make the screen print simple 
+        numpy.set_printoptions(precision=2)
 
-    self.pk_day = [\
-      0.109491, 0.00912429, 0.00912429, 0.00982246, 0.00912429, 0.109491,
-      0.00912429, 0.00982246, 0.0129911, 0.0129911, 0.155893, 0.0115947,
-      0.130487, 0.0108739, 0.0108739, 0.0139987, 0.0108739, 0.130487, 0.0108739,
-      0.0139987, 0.0129147, 0.0129147, 0.154976, 0.018134]
+    #######################################################################
+    def init_belief(self):
 
-    self.pk_day = numpy.ones((1,len(self.states))) / float(len(self.states))
+        # here initial belief is sampled from a Dirichlet distribution, so it's
+        # not uniformly initialized!!!
+        if self.uniform_init_belief:
+            self.b = numpy.ones(len(self.states)) / float(len(self.states))
+        else:
+            self.b = numpy.random.dirichlet( numpy.ones(len(self.states)) )
 
-    if self.actual_time is 'morning':
-      self.pk = self.pk_mor
-    elif self.actual_time is 'noon':
-      self.pk = self.pk_noo
-    elif self.actual_time is 'afternoon':
-      self.pk = self.pk_aft
-    elif self.actual_time is 'day':
-      self.pk = self.pk_day
-    else:
-      print('Something wrong happened')
-      sys.exit()
+        self.b = self.b.T
+
+    #######################################################################
+    def observe(self):
+        self.o = None
+        if self.auto_observations:
+            rand = numpy.random.random_sample()
+            acc = 0.0
+            for i in range(len(self.observations)):
+                acc += self.obs_mat[self.a, self.s, i]
+                if acc > rand:
+                    self.o = i
+                    break
+            if self.o == None:
+                sys.exit('Error: observation is not properly sampled')
+        else:
+            ind = input("Please input the name of observation: ")
+            self.o = next(i for i in range(len(self.observations)) \
+                if self.observations[i] == ind)
 
 
-    self.policy_full = policy_parser.Policy(len(self.states), len(self.actions), 
-                                       filename=self.policy_file_full)
+    #######################################################################
+    def update(self):
 
-    numpy.set_printoptions(precision=3)
+        new_b = numpy.dot(self.b, self.trans_mat[self.a, :])
 
-  #######################################################################
-  def init_belief(self):
-    if self.uniform_init_belief:
-      self.b = numpy.ones((1, len(self.states), )) 
-      self.b[0] = numpy.random.dirichlet( numpy.ones(len(self.states)) )
-    # the following code will go wrong, as the pk_xxx's wrong size
-    elif self.robot_time is 'morning':
-      self.b = numpy.matrix(self.pk_mor)
-    elif self.robot_time is 'noon':
-      self.b = numpy.matrix(self.pk_noo)
-    elif self.robot_time is 'afternoon':
-      self.b = numpy.matrix(self.pk_aft)
-    elif self.robot_time is 'day':
-      self.b = numpy.matrix(self.pk_day)
-    else:
-      print('Something wrong happened')
-      sys.exit()
+        new_b = [new_b[i] * self.obs_mat[self.a, i, self.o] for i in range(len(self.states))]
 
-    self.b = self.b.T
+        self.b = (new_b / sum(new_b)).T
 
-    return True
+    #######################################################################
+    def run(self):
 
-  #######################################################################
-  def observe(self):
-    self.o = -1
-    if self.auto_observations:
-      rand = numpy.random.random_sample()
-      acc = 0.0
-      for i in range(len(self.observations)):
-        acc += self.obs_mat[self.a, self.s, i]
-        if acc > rand:
-          self.o = i
-          break
-      if self.o == -1:
-        print('Error: observation is not properly sampled')
-        sys.exit()
-    else:
-      print('ERROR')
-      exit(1)
+        cost = 0.0
+        self.init_belief()
+        reward = 0.0
+        overall_reward = 0.0
 
-  #######################################################################
-  def update(self):
+        while True:
 
-    new_b = numpy.dot(self.b.T, self.trans_mat[self.a, :])
+            if self.print_flag:
+                print('\tstate:\t' + self.states[self.s] + ' ' + str(self.s))
+                print('\tcost so far:\t' + str(cost))
 
-    new_b[0] = [new_b[0, i] * self.obs_mat[self.a, i, self.o] for i in
-                range(len(self.states))]
+            self.a = int(self.policy.select_action(self.b))
+            if self.print_flag:
+                print('\taction:\t' + self.actions[self.a] + ' ' + str(self.a))
 
-    self.b = (new_b / sum(new_b.T)).T
+            self.observe()
+            if self.print_flag:
+                print('\tobserve:\t'+self.observations[self.o]+' '+str(self.o))
 
-    # print('belief: ')
-    # print(self.b.T)
-    return True
-
-  #######################################################################
-  def run(self):
-    cost = 0
-    self.r = 0.0
-    self.init_belief()
-
-    assert self.policy_switch is 'pomdp'
-    cnt=0
-
-    while True:
-      if self.print_flag is True:
-        print('\nstate: ' + self.states[self.s] + ' ' + str(self.s[0]))
-        print('belief: ' + str(self.b.T))
-        time.sleep(0.5)
-      
-      # if abs(cost) >= self.max_cost:
-      #   # arbitrarily select the first delivery
-      #   self.a = 3 + self.num_item + self.num_person + self.num_room
-      # else:
-      #   self.a = self.policy_full.select_action(self.b)
-
-      self.a = self.policy_full.select_action(self.b)
-
-      ################## TEMP #########
-      # if cnt == 0:
-      #   self.a = 4
-      #   cnt += 1
-
-      if self.print_flag is True:
-        print('cost: ' + str(cost))
-        print('action: ' + self.actions[int(self.a)] + ' ' + str(int(self.a)))
+            self.update()
+            if self.print_flag:
+                print('\nbelief:\t' + str(self.b))
 
 
-      self.observe()
-      if self.print_flag is True:
-        print('observation: ' + self.observations[self.o] + ' ' + str(self.o))
-        print
+            overall_reward += self.reward_mat[self.a, self.s]
+            # print('current cost: ' + str(self.reward_mat[self.a, self.s]))
+            # print('overall cost: ' + str(overall_reward))
 
-      self.update()
+            if 'take' in self.actions[self.a]:
+                if self.print_flag is True:
+                    print('\treward: ' + str(self.reward_mat[self.a, self.s]))
+                reward += self.reward_mat[self.a, self.s]
+                break
+            else:
+                cost += self.reward_mat[self.a, self.s]
 
-      self.r += self.reward_mat[self.a, self.s]
+        return reward, cost, overall_reward
 
-      if 'take' not in self.actions[int(self.a)]:
-        cost += self.reward_mat[self.a, self.s]
-      else:
-        break
-    
-    if self.print_flag is True:
-      print('---------------------------------->')
-      print('reward: ' + str(self.r))
-      print('---------------------------------->')
+    #######################################################################
+    def run_numbers_of_trials(self):
 
-    return cost
+        cost_list = []
+        success_list = []
+        reward_list = []
+        overall_reward_list = []
 
-  #######################################################################
-  def run_numbers_of_trials(self):
+        string_i = ''
+        string_p = ''
+        string_r = ''
+        
+        bar = Bar('Processing', max=self.trials_num)
 
-    cost_list = []
-    success_list = []
-    reward_list = []
+        for i in range(self.trials_num):
 
-    string_i = ''
-    string_p = ''
-    string_r = ''
-    
-    bar = Bar('Processing', max=self.trials_num)
-    for i in range(self.trials_num):
+            # get a sample as the current state, terminal state exclusive
+            if self.auto_state:
+                self.s = numpy.random.randint(low=0, high=len(self.states)-1,
+                    size=(1))[0]
+            else:
+                self.s = int(input("Please specify the index of state: "))
 
-      xk = numpy.arange(len(self.states))
-      # print(xk)
-      # print(self.pk)
-      custm = stats.rv_discrete(name='custm', values=(xk, self.pk))
-      self.s = custm.rvs(size=1)
+            # run this episode and save the reward
+            reward, cost, overall_reward = self.run()
+            reward_list.append(reward)
+            cost_list.append(cost)
+            overall_reward_list.append(overall_reward)
 
-      cost_list.append(self.run())
-      reward_list.append(self.r)
+            deliver_index = int(self.a - (3 + self.num_item + self.num_person \
+                + self.num_room))
 
-      deliver_index = int(self.a - (3 + self.num_item + self.num_person + self.num_room))
+            if deliver_index == int(self.s):
+                success_list.append(1.0)
+            else:
+                success_list.append(0.0)
 
-      if deliver_index == int(self.s):
-        success_list.append(1)
-      else:
-        success_list.append(0)
+            # for sumarizing successes in each entry of item, person, room
+            deliver_i = int(deliver_index / (self.num_person * self.num_room))
+            deliver_p = int(deliver_index / self.num_room) % self.num_person
+            deliver_r = int(deliver_index % self.num_room)
 
-        # string += str(self.s) + ' ' + str(self.a - (3 + self.num_item + \
-        #   self.num_person + self.num_room)) + '\n'
+            state_i = int(self.s / (self.num_person * self.num_room))
+            state_p = int(self.s / self.num_room) % self.num_person
+            state_r = int(self.s % self.num_room)
 
-      deliver_i = int(deliver_index / (self.num_person * self.num_room))
-      deliver_p = int(deliver_index / self.num_room) % self.num_person
-      deliver_r = int(deliver_index % self.num_room)
+            if deliver_p == state_p and deliver_r == state_r:
+                string_i += str(deliver_i) + ' ' + str(state_i) + '\n'
 
-      state_i = int(self.s / (self.num_person * self.num_room))
-      state_p = int(self.s / self.num_room) % self.num_person
-      state_r = int(self.s % self.num_room)
+            if deliver_i == state_i and deliver_r == state_r:
+                string_p += str(deliver_p) + ' ' + str(state_p) + '\n'
 
-      if deliver_p == state_p and deliver_r == state_r:
-        string_i += str(deliver_i) + ' ' + str(state_i) + '\n'
+            if deliver_i == state_i and deliver_p == state_p:
+                string_r += str(deliver_r) + ' ' + str(state_r) + '\n'
 
-      if deliver_i == state_i and deliver_r == state_r:
-        string_p += str(deliver_p) + ' ' + str(state_p) + '\n'
+            bar.next()
 
-      if deliver_i == state_i and deliver_p == state_p:
-        string_r += str(deliver_r) + ' ' + str(state_r) + '\n'
+        bar.finish()
 
-      bar.next()
+        f_i = open('new_reward_results_i.txt', 'w')
+        f_p = open('new_reward_results_p.txt', 'w')
+        f_r = open('new_reward_results_r.txt', 'w')
+        f_i.write(string_i)
+        f_p.write(string_p)
+        f_r.write(string_r)
+        f_i.close()
+        f_p.close()
+        f_r.close()
 
-    bar.finish()
+        cost_arr = numpy.array(cost_list)
+        success_arr = numpy.array(success_list)
+        reward_arr = numpy.array(reward_list)
+        overall_reward_arr = numpy.array(overall_reward_list)
 
-    f_i = open('new_reward_results_i.txt', 'w')
-    f_p = open('new_reward_results_p.txt', 'w')
-    f_r = open('new_reward_results_r.txt', 'w')
-    f_i.write(string_i)
-    f_p.write(string_p)
-    f_r.write(string_r)
-    f_i.close()
-    f_p.close()
-    f_r.close()
+        print('average cost: ' + str(numpy.mean(cost_arr))[1:] + \
+            ' with std ' + str(numpy.std(cost_arr)))
+        print('average success: ' + str(numpy.mean(success_arr)) + \
+            ' with std ' + str(numpy.std(success_arr)))
+        print('average reward: ' + str(numpy.mean(reward_arr)) + \
+            ' with std ' + str(numpy.std(reward_arr)))
+        print('average overall reward: ' + str(numpy.mean(overall_reward_arr)) + \
+            ' with std ' + str(numpy.std(overall_reward_arr)))
 
-    cost_arr = numpy.array(cost_list)
-    success_arr = numpy.array(success_list)
-    reward_arr = numpy.array(reward_list)
-
-    print('average cost: ' + str(numpy.mean(cost_arr))[1:] + ' with std ' + 
-          str(numpy.std(cost_arr)))
-    print('average success: ' + str(numpy.mean(success_arr)) + ' with std ' +
-          str(numpy.std(success_arr)))
-    print('average reward: ' + str(numpy.mean(reward_arr)) + ' with std ' + 
-          str(numpy.std(reward_arr)))
-
-    return (numpy.mean(cost_arr),numpy.mean(success_arr),numpy.mean(reward_arr))
+        return (numpy.mean(cost_arr), numpy.mean(success_arr), \
+            numpy.mean(reward_arr))
 
 def main():
 
-  s = Simulator(uniform_init_belief=True, 
-                policy_file_full='policy/new.policy', 
-                pomdp_file='models/new.pomdp',
-                print_flag=False, 
-                actual_time='day', 
-                robot_time='day', 
-                policy_switch='pomdp',
-                trials_num=100000,
-                min_cost=0,
-                max_cost=100,
-                auto_observations=True,
-                rounds=1,
-                num_item=4,
-                num_person=1,
-                num_room=5)
-  print('note that initial belief is not uniform')
-  s.run_numbers_of_trials()
+    s = Simulator(uniform_init_belief = False, 
+        auto_state = True, 
+        auto_observations = True, 
+        print_flag = False, 
+        policy_file = 'policy/20150503/413_new.policy', 
+        pomdp_file = 'models/20150503_413_new.pomdp',
+        trials_num = 100000,
+        num_item = 4, 
+        num_person = 1, 
+        num_room = 3)
+ 
+    if not s.uniform_init_belief:   
+        print('note that initial belief is not uniform\n')
 
+    s.run_numbers_of_trials()
 
 if __name__ == '__main__':
-
-  main()
-
+    main()
 
